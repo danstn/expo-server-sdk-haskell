@@ -7,7 +7,7 @@ Feel free to grab it and modify to your needs.
 ## Operations
 
 ```hs
-sendPushNotification :: PushMessage -> IO ByteString
+sendPushNotification :: PushMessage -> IO (Either String PushTicketResponse)
 ```
 
 ## Helpers
