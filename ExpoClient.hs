@@ -8,11 +8,16 @@
 module ExpoClient
   ( PushMessage(..)
   , PushToken(..)
+  , PushTicket(..)
+  , PushTicketResponse(..)
+  , Error(..)
+  , Status(..)
   , Title(..)
   , Body(..)
   , Priority(..)
   , Sound(..)
   , sendPushNotification
+  , sendPushNotificationBatch
   , createMessageSimple
   ) where
 
@@ -33,18 +38,20 @@ expoHost = "exp.host"
 --------------------------------------------------------------------------------
 
 data PushMessage = PushMessage
-  { _to         :: PushToken
-  , _data       :: Maybe Value
-  , _title      :: Maybe Title
-  , _body       :: Maybe Body
-  , _sound      :: Maybe Sound
-  , _ttl        :: Maybe Ttl
-  , _expiration :: Maybe Expiration
-  , _prority    :: Maybe Priority
-  , _badge      :: Maybe Badge
+  { _to                   :: PushToken
+  , _data                 :: Maybe Value
+  , _title                :: Maybe Title
+  , _body                 :: Maybe Body
+  , _sound                :: Maybe Sound
+  , _ttl                  :: Maybe Ttl
+  , _expiration           :: Maybe Expiration
+  , _prority              :: Maybe Priority
+  , _badge                :: Maybe Badge
+  , __displayInForeground :: Maybe Bool
   }
 
 newtype PushToken = PushToken Text
+  deriving Show
 
 newtype Title = Title Text
 
@@ -83,11 +90,11 @@ data PushTicket = PushTicket
 
 instance FromJSON PushTicket where
   parseJSON = withObject "PushTicket" $ \o -> do
-    _status   <- o .: "status"
-    _ticketId <- o .:? "id"
-    _error    <- o .:? "error"
-    details   <- o .:? "details"
-    _errorMessage <-
+    _status       <- o .: "status"
+    _ticketId     <- o .:? "id"
+    _errorMessage <- o .:? "message"
+    details <- o .:? "details"
+    _error <-
       case details of
         Just v  -> v .: "error"
         Nothing -> pure Nothing
@@ -95,7 +102,7 @@ instance FromJSON PushTicket where
 
 data Status = StatusOk
             | StatusError
-            deriving (Show)
+            deriving (Show, Eq)
 
 instance FromJSON Status where
   parseJSON v@(String s) = case s of
@@ -112,7 +119,7 @@ data Error = DeviceNotRegistered
            | MessageRateExceeded
            | InvalidCredentials
            | UnknownError Text
-           deriving (Show)
+           deriving (Eq, Show)
 
 instance FromJSON Error where
   parseJSON = withText "Error" $ pure . \case
@@ -185,15 +192,16 @@ $(deriveToJSON defaultOptions
 
 createMessageSimple :: Title -> Body -> PushToken -> PushMessage
 createMessageSimple title' body' to' = PushMessage
-  { _to         = to'
-  , _data       = Nothing
-  , _title      = Just title'
-  , _body       = Just body'
-  , _sound      = Nothing
-  , _ttl        = Nothing
-  , _expiration = Nothing
-  , _prority    = Nothing
-  , _badge      = Nothing
+  { _to                   = to'
+  , _data                 = Nothing
+  , _title                = Just title'
+  , _body                 = Just body'
+  , _sound                = Nothing
+  , _ttl                  = Nothing
+  , _expiration           = Nothing
+  , _prority              = Nothing
+  , _badge                = Nothing
+  , __displayInForeground = Nothing
   }
 
 -- | Operations
@@ -211,3 +219,5 @@ sendRequest b = runReq defaultHttpConfig $ do
 sendPushNotification :: PushMessage -> IO (Either String PushTicketResponse)
 sendPushNotification = sendRequest . encode
 
+sendPushNotificationBatch :: [PushMessage] -> IO (Either String PushTicketResponse)
+sendPushNotificationBatch = sendRequest . encode
